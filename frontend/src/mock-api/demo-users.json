@@ -1,0 +1,44 @@
+{
+  "demoUsers": [
+    {
+      "id": "demo-student-001",
+      "email": "field@osintx.demo",
+      "name": "Agent Frost",
+      "role": "student",
+      "avatar": "🎓",
+      "credits": 350,
+      "creditLimit": 500,
+      "activeCases": 2,
+      "closedCases": 8,
+      "restrictionLevel": "FIELD",
+      "outputDepth": "restricted",
+      "correlationLimit": 1,
+      "lastActivity": "2025-12-28T16:30:00Z",
+      "joinedAt": "2025-11-15T10:30:00Z",
+      "systemWarnings": 3
+    },
+    {
+      "id": "demo-user-001",
+      "email": "investigator@osintx.demo",
+      "name": "Jordan Trace",
+      "role": "user",
+      "avatar": "👤",
+      "credits": 750,
+      "creditLimit": 1000,
+      "activeCases": 5,
+      "closedCases": 34,
+      "restrictionLevel": "STANDARD",
+      "outputDepth": "standard",
+      "correlationLimit": 3,
+      "savedTools": ["bulk-ip-tracer", "dork-generator", "location-tracker"],
+      "workspaceLayout": "adaptive",
+      "lastActivity": "2025-12-28T18:45:00Z",
+      "joinedAt": "2025-09-20T14:45:00Z"
+    }
+  ],
+  "sessionConfig": {
+    "demoSessionDuration": 3600000,
+    "autoResetOnRefresh": true,
+    "showDemoBanner": true
+  }
+}

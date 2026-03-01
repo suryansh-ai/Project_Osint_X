@@ -1,0 +1,918 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Mail, X, Shield, AlertTriangle, CheckCircle, ExternalLink, Copy,
+  Download, RefreshCw, Search, Eye, Lock, ChevronRight, Activity,
+  Clock, FileText, Layers, Crosshair, Fingerprint, Globe, User,
+  Database, Server, AlertCircle, ChevronDown, ChevronUp, MapPin,
+  Camera, Calendar, Hash, Radio, Zap, Info, BarChart3
+} from 'lucide-react';
+import { useToast } from '../common/Toast';
+import { useHistory } from '../../context/HistoryContext';
+import useClipboard from '../../context/hooks/useClipboard';
+import { trackToolUsage } from '../../utils/analytics';
+import { exportToJSON, exportToCSV, formatForExport } from '../../utils/export';
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SHARED UI PRIMITIVES
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Hex-grid animated background ──────────────────────────────────── */
+const HexGridCanvas = () => {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let animId, time = 0;
+    const resize = () => { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; };
+    resize();
+    window.addEventListener('resize', resize);
+    const hexSize = 28, hexH = hexSize * Math.sqrt(3);
+    const drawHex = (cx, cy, opacity, pulse) => {
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i - Math.PI / 6;
+        const x = cx + hexSize * Math.cos(angle), y = cy + hexSize * Math.sin(angle);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      const glow = pulse ? 0.12 + Math.sin(time * 0.02 + cx * 0.01) * 0.08 : 0;
+      ctx.strokeStyle = `rgba(56, 189, 248, ${opacity * 0.12 + glow})`;
+      ctx.lineWidth = 0.6;
+      ctx.stroke();
+      if (pulse && glow > 0.05) { ctx.fillStyle = `rgba(56, 189, 248, ${glow * 0.2})`; ctx.fill(); }
+    };
+    const animate = () => {
+      time++;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const cols = Math.ceil(canvas.width / (hexSize * 1.5)) + 2;
+      const rows = Math.ceil(canvas.height / hexH) + 2;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const cx = c * hexSize * 1.5, cy = r * hexH + (c % 2 === 1 ? hexH / 2 : 0);
+          const dist = Math.sqrt((cx - canvas.width / 2) ** 2 + (cy - canvas.height / 2) ** 2);
+          const maxD = Math.sqrt((canvas.width / 2) ** 2 + (canvas.height / 2) ** 2);
+          drawHex(cx, cy, 1 - dist / maxD, Math.sin(time * 0.008 + dist * 0.005) > 0.6);
+        }
+      }
+      const beamY = (time * 1.2) % (canvas.height + 100) - 50;
+      const grad = ctx.createLinearGradient(0, beamY - 30, 0, beamY + 30);
+      grad.addColorStop(0, 'rgba(56,189,248,0)');
+      grad.addColorStop(0.5, 'rgba(56,189,248,0.04)');
+      grad.addColorStop(1, 'rgba(56,189,248,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, beamY - 30, canvas.width, 60);
+      animId = requestAnimationFrame(animate);
+    };
+    animate();
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', resize); };
+  }, []);
+  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />;
+};
+
+/* ── Severity colors ──────────────────────────────────────────────── */
+const sevColor = (s) => {
+  switch (s?.toLowerCase?.()) {
+    case 'critical': return { bg: 'bg-red-500/15', text: 'text-red-400', border: 'border-red-500/30', dot: 'bg-red-500', ring: '#ef4444' };
+    case 'high': return { bg: 'bg-orange-500/15', text: 'text-orange-400', border: 'border-orange-500/30', dot: 'bg-orange-500', ring: '#f97316' };
+    case 'medium': return { bg: 'bg-amber-500/15', text: 'text-amber-400', border: 'border-amber-500/30', dot: 'bg-amber-400', ring: '#f59e0b' };
+    case 'low': return { bg: 'bg-sky-500/10', text: 'text-sky-400', border: 'border-sky-500/20', dot: 'bg-sky-400', ring: '#38bdf8' };
+    case 'clean': return { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/20', dot: 'bg-emerald-400', ring: '#34d399' };
+    default: return { bg: 'bg-gray-500/10', text: 'text-gray-400', border: 'border-gray-500/20', dot: 'bg-gray-400', ring: '#9ca3af' };
+  }
+};
+
+/* ── Risk ring gauge ─────────────────────────────────────────────── */
+const RiskGauge = ({ score, level, size = 120, strokeWidth = 10 }) => {
+  const colors = sevColor(level);
+  const r = (size - strokeWidth) / 2;
+  const circ = 2 * Math.PI * r;
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <svg width={size} height={size} className="drop-shadow-lg">
+        <circle cx={size / 2} cy={size / 2} r={r} stroke="#1e293b" strokeWidth={strokeWidth} fill="none" />
+        <motion.circle cx={size / 2} cy={size / 2} r={r} stroke={colors.ring} strokeWidth={strokeWidth} fill="none"
+          strokeLinecap="round" strokeDasharray={circ} initial={{ strokeDashoffset: circ }}
+          animate={{ strokeDashoffset: circ - (score / 100) * circ }} transition={{ duration: 1.8, ease: 'easeOut' }}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+        <text x="50%" y="44%" textAnchor="middle" dy="0.35em" className="fill-white font-bold" style={{ fontSize: size * 0.28 }}>{score}</text>
+        <text x="50%" y="68%" textAnchor="middle" className={`font-semibold tracking-wider`} style={{ fontSize: size * 0.1, fill: colors.ring }}>{level}</text>
+      </svg>
+    </div>
+  );
+};
+
+/* ── Info row ─────────────────────────────────────────────────────── */
+const InfoRow = ({ icon: Icon, label, value, mono = false, positive, copyable = false, onCopy }) => {
+  if (value === undefined || value === null || value === '') return null;
+  return (
+    <div className="flex items-start gap-3 py-2 px-3 rounded-lg hover:bg-white/[0.02] transition-colors group">
+      {Icon && <Icon className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />}
+      <span className="text-gray-400 text-sm min-w-[100px] flex-shrink-0">{label}</span>
+      <span className={`text-sm flex-1 ${mono ? 'font-mono' : ''} ${positive === true ? 'text-emerald-400' : positive === false ? 'text-red-400' : 'text-white'}`}>
+        {String(value)}
+      </span>
+      {copyable && (
+        <button onClick={() => onCopy?.(String(value))} className="opacity-0 group-hover:opacity-100 transition-opacity">
+          <Copy className="w-3.5 h-3.5 text-gray-500 hover:text-sky-400" />
+        </button>
+      )}
+    </div>
+  );
+};
+
+/* ── Badge ────────────────────────────────────────────────────────── */
+const Badge = ({ children, variant = 'default' }) => {
+  const styles = {
+    critical: 'bg-red-500/15 text-red-400 border-red-500/30',
+    high: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
+    medium: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+    low: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
+    clean: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    default: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
+  };
+  return (
+    <span className={`inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${styles[variant] || styles.default}`}>
+      {children}
+    </span>
+  );
+};
+
+/* ── Section wrapper ──────────────────────────────────────────────── */
+const Section = ({ title, icon: Icon, children, defaultOpen = true }) => {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="border border-white/5 rounded-xl overflow-hidden bg-white/[0.01]">
+      <button onClick={() => setOpen(!open)}
+        className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-white/[0.02] transition-colors">
+        {Icon && <Icon className="w-4 h-4 text-sky-400" />}
+        <span className="text-xs font-bold text-sky-400 uppercase tracking-[0.15em] flex-1 text-left">{title}</span>
+        {open ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }} className="overflow-hidden">
+            <div className="px-5 pb-5">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MAIN COMPONENT
+   ═══════════════════════════════════════════════════════════════════════ */
+const EmailIntelTool = ({ onClose, onConsume }) => {
+  const toast = useToast();
+  const { addToHistory } = useHistory();
+  const { copy } = useClipboard();
+
+  const [email, setEmail] = useState('');
+  const [isScanning, setIsScanning] = useState(false);
+  const [results, setResults] = useState(null);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [scanProgress, setScanProgress] = useState(0);
+  const [scanPhase, setScanPhase] = useState('');
+  const [error, setError] = useState(null);
+
+  const mountedRef = useRef(true);
+  const intervalRef = useRef(null);
+  const abortRef = useRef(null);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, []);
+
+  /* ── Scan handler ───────────────────────────────────────────────── */
+  const handleScan = useCallback(async () => {
+    const target = email.trim().toLowerCase();
+    if (!target || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(target)) {
+      toast.error('Enter a valid email address');
+      return;
+    }
+    trackToolUsage('email-intel', 'analyze', 'start');
+    setIsScanning(true);
+    setResults(null);
+    setError(null);
+    setScanProgress(0);
+    setActiveTab('overview');
+    onConsume?.(12);
+
+    const phases = [
+      'Initializing Email Intelligence…',
+      'Validating email syntax & deliverability…',
+      'Querying DNS records (MX / SPF / DMARC)…',
+      'Checking email reputation databases…',
+      'Cross-referencing breach databases…',
+      'Scanning XposedOrNot for exposed breaches…',
+      'Checking Hudson Rock infostealer logs…',
+      'Resolving Gravatar & social profiles…',
+      'Detecting registered accounts (Holehe)…',
+      'Invoking GHunt for Google OSINT…',
+      'Computing risk assessment…',
+      'Compiling intelligence report…',
+    ];
+    let idx = 0;
+    setScanPhase(phases[0]);
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    const interval = setInterval(() => {
+      if (!mountedRef.current) { clearInterval(interval); return; }
+      idx++;
+      if (idx < phases.length) {
+        setScanPhase(phases[idx]);
+        setScanProgress(Math.round(((idx + 1) / phases.length) * 100));
+      }
+    }, 1200);
+    intervalRef.current = interval;
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    try {
+      const resp = await fetch(`${API_BASE}/tools/email/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: target }),
+        signal: controller.signal,
+      });
+      clearInterval(interval);
+      intervalRef.current = null;
+      if (!mountedRef.current) return;
+
+      if (!resp.ok) {
+        const e = await resp.json().catch(() => ({}));
+        throw new Error(e.error || `Server error ${resp.status}`);
+      }
+      const data = await resp.json();
+      if (!mountedRef.current) return;
+
+      setScanProgress(100);
+      setScanPhase('Analysis complete');
+      setResults(data);
+
+      addToHistory?.({
+        tool: 'Email Intelligence',
+        query: target,
+        resultSummary: `Risk: ${data.riskAssessment?.riskLevel || 'N/A'} | Score: ${data.riskAssessment?.riskScore ?? 'N/A'} | Breaches: ${data.breaches?.length || 0}`,
+        timestamp: new Date().toISOString(),
+      });
+
+      trackToolUsage('email-intel', 'analyze', 'success');
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      clearInterval(interval);
+      intervalRef.current = null;
+      if (!mountedRef.current) return;
+      setError(err.message);
+      toast.error(err.message || 'Analysis failed');
+      trackToolUsage('email-intel', 'analyze', 'error');
+    } finally {
+      if (mountedRef.current) setIsScanning(false);
+    }
+  }, [email, toast, addToHistory, onConsume]);
+
+  /* ── Export handlers ────────────────────────────────────────────── */
+  const handleExportJSON = useCallback(() => {
+    if (!results) return;
+    const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `email-intel-${results.email}-${Date.now()}.json`; a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Exported as JSON');
+  }, [results, toast]);
+
+  const handleCopyReport = useCallback(() => {
+    if (!results) return;
+    const r = results;
+    const risk = r.riskAssessment || {};
+    const lines = [
+      `═══ EMAIL INTELLIGENCE REPORT ═══`,
+      `Case Ref: ${r.investigationMeta?.caseRef || 'N/A'}`,
+      `Generated: ${r.investigationMeta?.timestamp || new Date().toISOString()}`,
+      `Target: ${r.email}`,
+      `───────────────────────────────`,
+      `RISK ASSESSMENT`,
+      `  Score: ${risk.riskScore ?? 'N/A'}/100`,
+      `  Level: ${risk.riskLevel || 'N/A'}`,
+      risk.riskFactors?.length ? `  Factors:\n${risk.riskFactors.map(f => `    - [${f.category}] ${f.factor} (+${f.weight})`).join('\n')}` : '',
+      ``,
+      `VALIDATION`,
+      `  Format Valid: ${r.validation?.valid ? 'YES' : 'NO'}`,
+      `  Disposable: ${r.validation?.disposable ? 'YES' : 'NO'}`,
+      `  Free Provider: ${r.validation?.freeProvider ? 'YES' : 'NO'}`,
+      `  Deliverable: ${r.deliverability?.canDeliver ? 'YES' : 'UNKNOWN'}`,
+      ``,
+      `AUTHENTICATION`,
+      `  SPF: ${r.authentication?.spf || 'Not found'}`,
+      `  DMARC: ${r.authentication?.dmarc || 'Not found'}`,
+      `  DKIM Selector: ${r.authentication?.dkim || 'Not checked'}`,
+      ``,
+      `DOMAIN (${r.domain?.name || 'N/A'})`,
+      `  MX Records: ${r.domain?.mxRecords?.join(', ') || 'None'}`,
+      ``,
+      `BREACHES (${r.breaches?.length || 0})`,
+      r.breaches?.map(b => `  - ${b.name || b.source}: ${b.detail || b.description || ''} [${b.severity}]`).join('\n') || '  None detected',
+      ``,
+      `REGISTERED ACCOUNTS (${r.registeredCount || 0})`,
+      r.registeredAccounts?.map(a => `  - ${a.service}: ${a.registered ? 'REGISTERED' : 'Not found'}`).join('\n') || '  None detected',
+      ``,
+      `SOCIAL MEDIA`,
+      r.socialMedia?.filter(s => s.found).map(s => `  - ${s.platform}: ${s.url || 'Detected'}`).join('\n') || '  None detected',
+      ``,
+      r.googleOsint ? [
+        `GOOGLE OSINT (GHunt)`,
+        `  Gaia ID: ${r.googleOsint.gaiaId || 'N/A'}`,
+        `  Name: ${r.googleOsint.name || 'N/A'}`,
+        `  Last Edited: ${r.googleOsint.lastEdited || 'N/A'}`,
+      ].join('\n') : '',
+      ``,
+      `───────────────────────────────`,
+      `Sources: ${r.investigationMeta?.dataSources?.join(', ') || 'N/A'}`,
+      `Duration: ${r.investigationMeta?.searchDuration || 'N/A'}`,
+      `Evidence Grade: ${r.investigationMeta?.evidenceGrade || 'N/A'}`,
+    ].filter(Boolean).join('\n');
+    copy(lines);
+    toast.success('Report copied to clipboard');
+  }, [results, copy, toast]);
+
+  /* ── Tab definitions ────────────────────────────────────────────── */
+  const tabs = [
+    { id: 'overview', label: 'Overview', icon: Activity },
+    { id: 'breaches', label: 'Breaches', icon: Database, count: results?.breaches?.length },
+    { id: 'profile', label: 'Profile', icon: User },
+    { id: 'domain', label: 'Domain', icon: Globe },
+    { id: 'google', label: 'Google OSINT', icon: Search, highlight: !!results?.googleOsint },
+    { id: 'reputation', label: 'Reputation', icon: Shield },
+  ];
+
+  const r = results;
+
+  /* ═══════════════════════════════════════════════════════════════════
+     RENDER
+     ═══════════════════════════════════════════════════════════════════ */
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+      style={{ backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(12px)' }}>
+      <motion.div initial={{ scale: 0.92, opacity: 0, y: 30 }} animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.92, opacity: 0, y: 30 }} transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+        className="relative w-full max-w-5xl max-h-[92vh] rounded-2xl overflow-hidden border border-white/10 bg-[#0a0e1a] shadow-2xl flex flex-col">
+
+        {/* Background */}
+        <HexGridCanvas />
+
+        {/* ── Header ──────────────────────────────────────────────── */}
+        <div className="relative flex items-center gap-4 px-6 py-4 border-b border-white/5 bg-[#0c1020]/80 backdrop-blur-md flex-shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
+            <Mail className="w-5 h-5 text-white" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-base font-bold text-white tracking-tight">Email Intelligence Aggregator</h2>
+            <p className="text-[11px] text-gray-500">Multi-source email OSINT • Evidence-grade analysis</p>
+          </div>
+          {results && (
+            <div className="flex items-center gap-2">
+              <button onClick={handleExportJSON} className="p-2 rounded-lg hover:bg-white/5 text-gray-400 hover:text-sky-400 transition-colors" title="Export JSON">
+                <Download className="w-4 h-4" />
+              </button>
+              <button onClick={handleCopyReport} className="p-2 rounded-lg hover:bg-white/5 text-gray-400 hover:text-sky-400 transition-colors" title="Copy Report">
+                <Copy className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+          <button onClick={onClose} className="p-2 -mr-2 rounded-lg hover:bg-white/5 text-gray-500 hover:text-white transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* ── Search bar ──────────────────────────────────────────── */}
+        <div className="relative px-6 py-4 border-b border-white/5 bg-[#0c1020]/50 flex-shrink-0">
+          <div className="flex gap-3">
+            <div className="flex-1 relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && !isScanning && handleScan()}
+                placeholder="Enter email address to investigate…"
+                className="w-full pl-11 pr-4 py-3 bg-white/[0.04] border border-white/10 rounded-xl text-sm text-white placeholder-gray-600 focus:outline-none focus:border-sky-500/50 focus:ring-1 focus:ring-sky-500/20 transition-all font-mono" />
+            </div>
+            <button onClick={handleScan} disabled={isScanning || !email.trim()}
+              className="px-6 py-3 bg-gradient-to-r from-sky-500 to-cyan-600 hover:from-sky-400 hover:to-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-sm font-bold text-white shadow-lg shadow-sky-500/20 transition-all flex items-center gap-2">
+              {isScanning ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              {isScanning ? 'Scanning…' : 'Analyze'}
+            </button>
+          </div>
+
+          {/* Progress bar */}
+          {isScanning && (
+            <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="mt-3">
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-[11px] text-sky-400/80 font-mono">{scanPhase}</span>
+                <span className="text-[11px] text-gray-500 font-mono">{scanProgress}%</span>
+              </div>
+              <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                <motion.div className="h-full bg-gradient-to-r from-sky-500 to-cyan-400 rounded-full"
+                  initial={{ width: 0 }} animate={{ width: `${scanProgress}%` }}
+                  transition={{ duration: 0.5, ease: 'easeOut' }} />
+              </div>
+            </motion.div>
+          )}
+        </div>
+
+        {/* ── Error state ─────────────────────────────────────────── */}
+        {error && !isScanning && (
+          <div className="px-6 py-4 bg-red-500/5 border-b border-red-500/20 flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
+            <p className="text-sm text-red-400 flex-1">{error}</p>
+            <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300"><X className="w-4 h-4" /></button>
+          </div>
+        )}
+
+        {/* ── Empty state ─────────────────────────────────────────── */}
+        {!results && !isScanning && !error && (
+          <div className="relative flex-1 flex items-center justify-center p-12">
+            <div className="text-center max-w-md">
+              <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-sky-500/10 to-cyan-500/10 border border-sky-500/20 flex items-center justify-center">
+                <Mail className="w-8 h-8 text-sky-500/50" />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-2">Email Intelligence Aggregator</h3>
+              <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+                Enter an email address to run a comprehensive multi-source OSINT analysis.
+                Data is gathered from 10+ sources including breach databases, reputation services, DNS records, and Google account intelligence.
+              </p>
+              <div className="grid grid-cols-3 gap-3 text-[10px] text-gray-600 uppercase tracking-wider">
+                {['Breach Intel', 'Reputation', 'SPF / DMARC', 'Gravatar', 'Account Enum', 'Google OSINT'].map(s => (
+                  <div key={s} className="px-3 py-2 rounded-lg bg-white/[0.02] border border-white/5">{s}</div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Results ─────────────────────────────────────────────── */}
+        {results && (
+          <div className="relative flex-1 overflow-hidden flex flex-col">
+            {/* Tab bar */}
+            <div className="flex items-center gap-1 px-6 py-2 border-b border-white/5 bg-[#0c1020]/40 flex-shrink-0 overflow-x-auto custom-scrollbar">
+              {tabs.map(tab => (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? 'bg-sky-500/15 text-sky-400 border border-sky-500/30'
+                      : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.03] border border-transparent'
+                  }`}>
+                  <tab.icon className="w-3.5 h-3.5" />
+                  {tab.label}
+                  {tab.count > 0 && (
+                    <span className="ml-1 text-[9px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-full font-bold">{tab.count}</span>
+                  )}
+                  {tab.highlight && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 ml-1" />}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab content */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+              <AnimatePresence mode="wait">
+
+                {/* ═══════ OVERVIEW TAB ═══════ */}
+                {activeTab === 'overview' && (
+                  <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
+                    
+                    {/* Meta banner */}
+                    {r.investigationMeta && (
+                      <div className="flex items-center gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/5 text-[11px] text-gray-500 font-mono">
+                        <span>Case: <span className="text-white">{r.investigationMeta.caseRef}</span></span>
+                        <span className="text-gray-700">|</span>
+                        <span>Duration: <span className="text-sky-400">{r.investigationMeta.searchDuration}</span></span>
+                        <span className="text-gray-700">|</span>
+                        <span>Sources: <span className="text-white">{r.investigationMeta.sourceCount}</span></span>
+                        <span className="text-gray-700">|</span>
+                        <span>Grade: <Badge variant={r.investigationMeta.evidenceGrade === 'HIGH' ? 'clean' : r.investigationMeta.evidenceGrade === 'MEDIUM' ? 'medium' : 'low'}>{r.investigationMeta.evidenceGrade}</Badge></span>
+                      </div>
+                    )}
+
+                    {/* Risk + quick stats */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {/* Risk gauge */}
+                      <div className="flex flex-col items-center justify-center p-6 rounded-xl bg-white/[0.02] border border-white/5">
+                        <RiskGauge score={r.riskAssessment?.riskScore ?? 0} level={r.riskAssessment?.riskLevel || 'UNKNOWN'} />
+                        <p className="text-[10px] text-gray-600 uppercase tracking-widest mt-3">Threat Score</p>
+                      </div>
+                      {/* Quick stats — clickable to jump to relevant tab */}
+                      <div className="col-span-2 grid grid-cols-2 gap-3">
+                        {[
+                          { label: 'Breaches', value: r.breaches?.length || 0, icon: Database, critical: (r.breaches?.length || 0) > 0, tab: 'breaches' },
+                          { label: 'Accounts', value: r.registeredCount || 0, icon: User, critical: false, tab: 'profile' },
+                          { label: 'Deliverable', value: r.deliverability?.canDeliver ? 'Yes' : 'Unknown', icon: CheckCircle, critical: false, tab: 'domain' },
+                          { label: 'Disposable', value: r.validation?.disposable ? 'Yes' : 'No', icon: AlertTriangle, critical: r.validation?.disposable, tab: 'domain' },
+                          { label: 'Reputation', value: r.reputation?.emailReputation || 'N/A', icon: Shield, critical: r.reputation?.emailReputation === 'low', tab: 'reputation' },
+                          { label: 'Google Account', value: r.googleOsint ? 'Found' : 'None', icon: Search, critical: false, tab: 'google' },
+                        ].map((stat, i) => (
+                          <button key={i} onClick={() => setActiveTab(stat.tab)}
+                            className={`p-4 rounded-xl border text-left cursor-pointer transition-all duration-200 group hover:scale-[1.02] hover:shadow-lg ${stat.critical ? 'bg-red-500/5 border-red-500/20 hover:bg-red-500/10 hover:border-red-500/40 hover:shadow-red-500/10' : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04] hover:border-sky-500/30 hover:shadow-sky-500/10'}`}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <stat.icon className={`w-4 h-4 ${stat.critical ? 'text-red-400' : 'text-gray-500 group-hover:text-sky-400'} transition-colors`} />
+                              <span className="text-[10px] text-gray-500 uppercase tracking-wider">{stat.label}</span>
+                              <ChevronRight className="w-3 h-3 text-gray-700 ml-auto opacity-0 group-hover:opacity-100 group-hover:text-sky-400 transition-all" />
+                            </div>
+                            <p className={`text-xl font-bold ${stat.critical ? 'text-red-400' : 'text-white'}`}>{stat.value}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Risk factors */}
+                    {r.riskAssessment?.riskFactors?.length > 0 && (
+                      <Section title="Risk Factors" icon={AlertTriangle} defaultOpen={true}>
+                        <div className="space-y-2">
+                          {r.riskAssessment.riskFactors.map((f, i) => (
+                            <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/5">
+                              <Badge variant={f.weight >= 25 ? 'critical' : f.weight >= 15 ? 'high' : 'medium'}>{f.category}</Badge>
+                              <span className="text-sm text-gray-300 flex-1">{f.factor}</span>
+                              <span className="text-xs font-mono text-red-400">+{f.weight}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </Section>
+                    )}
+
+                    {/* Validation summary */}
+                    <Section title="Email Validation" icon={CheckCircle}>
+                      <div className="grid grid-cols-2 gap-2">
+                        <InfoRow icon={CheckCircle} label="Valid Format" value={r.validation?.valid ? 'Yes' : 'No'} positive={r.validation?.valid} />
+                        <InfoRow icon={AlertTriangle} label="Disposable" value={r.validation?.disposable ? 'Yes' : 'No'} positive={!r.validation?.disposable} />
+                        <InfoRow icon={Mail} label="Free Provider" value={r.validation?.freeProvider ? 'Yes' : 'No'} />
+                        <InfoRow icon={Globe} label="Domain" value={r.domain?.name} copyable onCopy={copy} />
+                      </div>
+                    </Section>
+
+                    {/* Data sources */}
+                    {r.investigationMeta?.dataSources?.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        <span className="text-[10px] text-gray-600 uppercase tracking-wider self-center mr-2">Sources:</span>
+                        {r.investigationMeta.dataSources.map((src, i) => (
+                          <span key={i} className="text-[10px] px-2 py-1 rounded bg-white/[0.03] border border-white/5 text-gray-400">{src}</span>
+                        ))}
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+
+                {/* ═══════ BREACHES TAB ═══════ */}
+                {activeTab === 'breaches' && (
+                  <motion.div key="breaches" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+                    {(!r.breaches || r.breaches.length === 0) ? (
+                      <div className="text-center py-16">
+                        <Shield className="w-12 h-12 mx-auto mb-4 text-emerald-500/30" />
+                        <p className="text-lg font-semibold text-emerald-400">No Breaches Detected</p>
+                        <p className="text-sm text-gray-500 mt-1">This email was not found in any known breach databases</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/5 border border-red-500/20">
+                          <AlertTriangle className="w-5 h-5 text-red-400" />
+                          <p className="text-sm text-red-400 font-semibold">Found in {r.breaches.length} breach(es)</p>
+                        </div>
+                        {r.breaches.map((b, i) => {
+                          const sc = sevColor(b.severity);
+                          return (
+                            <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: i * 0.05 }}
+                              className={`p-5 rounded-xl border ${sc.border} ${sc.bg}`}>
+                              <div className="flex items-start justify-between mb-3">
+                                <div>
+                                  <h4 className="text-sm font-bold text-white">{b.name || b.source}</h4>
+                                  {b.domain && <p className="text-[11px] text-gray-500 font-mono mt-0.5">{b.domain}</p>}
+                                </div>
+                                <Badge variant={b.severity}>{b.severity}</Badge>
+                              </div>
+                              {b.detail && <p className="text-sm text-gray-400 mb-3">{b.detail}</p>}
+                              {b.description && <p className="text-sm text-gray-400 mb-3">{b.description}</p>}
+                              <div className="flex flex-wrap gap-4 text-[11px] text-gray-500">
+                                {b.date && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {b.date}</span>}
+                                {b.records > 0 && <span className="flex items-center gap-1"><Database className="w-3 h-3" /> {Number(b.records).toLocaleString()} records</span>}
+                                {b.industry && <span className="flex items-center gap-1"><Globe className="w-3 h-3" /> {b.industry}</span>}
+                              </div>
+                              {b.dataTypes && (
+                                <div className="mt-3 flex flex-wrap gap-1.5">
+                                  {(typeof b.dataTypes === 'string' ? b.dataTypes.split(',') : []).map((dt, j) => (
+                                    <span key={j} className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.05] border border-white/10 text-gray-400 uppercase">{dt.trim()}</span>
+                                  ))}
+                                </div>
+                              )}
+                            </motion.div>
+                          );
+                        })}
+                      </>
+                    )}
+
+                    {/* Infostealer data */}
+                    {r.infostealerData && (
+                      <Section title="Infostealer Compromise (Hudson Rock)" icon={Fingerprint}>
+                        <div className="p-4 rounded-xl bg-red-500/5 border border-red-500/20">
+                          <p className="text-sm text-red-400 font-semibold mb-3">
+                            Email found in {r.infostealerData.totalStealers} infostealer log(s)
+                          </p>
+                          {r.infostealerData.stealers?.map((s, i) => (
+                            <div key={i} className="p-3 rounded-lg bg-white/[0.02] border border-white/5 mb-2 last:mb-0">
+                              <InfoRow icon={AlertCircle} label="Computer" value={s.computer_name} mono />
+                              <InfoRow icon={Calendar} label="Date" value={s.date_compromised} />
+                              <InfoRow icon={Globe} label="OS" value={s.operating_system} />
+                              <InfoRow icon={Fingerprint} label="Malware" value={s.malware_path} mono />
+                            </div>
+                          ))}
+                        </div>
+                      </Section>
+                    )}
+                  </motion.div>
+                )}
+
+                {/* ═══════ PROFILE TAB ═══════ */}
+                {activeTab === 'profile' && (
+                  <motion.div key="profile" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
+                    
+                    {/* Gravatar */}
+                    <Section title="Gravatar Profile" icon={Camera}>
+                      {r.gravatar?.exists ? (
+                        <div className="flex items-start gap-6">
+                          {r.gravatar.avatarUrl && (
+                            <img src={r.gravatar.avatarUrl} alt="Avatar" className="w-20 h-20 rounded-xl border border-white/10 shadow-lg" />
+                          )}
+                          <div className="flex-1 space-y-1">
+                            <InfoRow icon={User} label="Display Name" value={r.gravatar.displayName} />
+                            <InfoRow icon={Globe} label="Profile URL" value={r.gravatar.profileUrl} copyable onCopy={copy} />
+                            <InfoRow icon={MapPin} label="Location" value={r.gravatar.location} />
+                            <InfoRow icon={FileText} label="About" value={r.gravatar.aboutMe} />
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 py-4 text-center">No Gravatar profile found</p>
+                      )}
+                    </Section>
+
+                    {/* Registered accounts */}
+                    <Section title={`Registered Accounts (${r.registeredCount || 0})`} icon={Layers}>
+                      {r.registeredAccounts?.length > 0 ? (
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {r.registeredAccounts.filter(a => a.registered).map((acc, i) => (
+                            <div key={i} className="flex items-center gap-2 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                              <CheckCircle className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                              <span className="text-sm text-white font-medium truncate">{acc.icon} {acc.service}</span>
+                            </div>
+                          ))}
+                          {r.registeredAccounts.filter(a => !a.registered).length > 0 && (
+                            <div className="col-span-full mt-2 p-3 rounded-lg bg-white/[0.01] border border-white/5">
+                              <p className="text-[11px] text-gray-600 mb-2">Not registered on:</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {r.registeredAccounts.filter(a => !a.registered).map((acc, i) => (
+                                  <span key={i} className="text-[10px] px-2 py-0.5 rounded bg-white/[0.03] text-gray-500">{acc.service}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 py-4 text-center">Account enumeration data not available</p>
+                      )}
+                    </Section>
+
+                    {/* Social media */}
+                    <Section title="Social Media Presence" icon={Globe}>
+                      {r.socialMedia?.filter(s => s.found).length > 0 ? (
+                        <div className="space-y-2">
+                          {r.socialMedia.filter(s => s.found).map((s, i) => (
+                            <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.02] border border-white/5">
+                              <Globe className="w-4 h-4 text-sky-400" />
+                              <span className="text-sm text-white font-medium flex-1">{s.platform}</span>
+                              {s.url && (
+                                <a href={s.url} target="_blank" rel="noopener noreferrer"
+                                  className="text-xs text-sky-400 hover:text-sky-300 flex items-center gap-1">
+                                  <ExternalLink className="w-3 h-3" /> Visit
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 py-4 text-center">No social media profiles detected</p>
+                      )}
+                    </Section>
+
+                    {/* GitHub */}
+                    {r.githubAccount && (
+                      <Section title="GitHub Account" icon={Globe}>
+                        <div className="flex items-start gap-4">
+                          {r.githubAccount.avatar && (
+                            <img src={r.githubAccount.avatar} alt="" className="w-14 h-14 rounded-xl border border-white/10" />
+                          )}
+                          <div className="flex-1 space-y-1">
+                            <InfoRow icon={User} label="Username" value={r.githubAccount.login} copyable onCopy={copy} />
+                            <InfoRow icon={Layers} label="Type" value={r.githubAccount.type} />
+                            {r.githubAccount.profileUrl && (
+                              <InfoRow icon={ExternalLink} label="Profile" value={r.githubAccount.profileUrl} copyable onCopy={copy} />
+                            )}
+                          </div>
+                        </div>
+                      </Section>
+                    )}
+                  </motion.div>
+                )}
+
+                {/* ═══════ DOMAIN TAB ═══════ */}
+                {activeTab === 'domain' && (
+                  <motion.div key="domain" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
+                    
+                    <Section title="Domain Information" icon={Globe}>
+                      <div className="space-y-1">
+                        <InfoRow icon={Globe} label="Domain" value={r.domain?.name} copyable onCopy={copy} mono />
+                        <InfoRow icon={Server} label="MX Records" value={r.domain?.mxRecords?.join(', ')} />
+                        <InfoRow icon={Clock} label="Registrar" value={r.domain?.registrar} />
+                        <InfoRow icon={Calendar} label="Created" value={r.domain?.created} />
+                        <InfoRow icon={Calendar} label="Expires" value={r.domain?.expires} />
+                        <InfoRow icon={Activity} label="Age" value={r.domain?.age} />
+                      </div>
+                    </Section>
+
+                    <Section title="Email Authentication" icon={Lock}>
+                      <div className="space-y-3">
+                        {/* SPF */}
+                        <div className={`p-4 rounded-xl border ${r.authentication?.spf ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-red-500/20 bg-red-500/5'}`}>
+                          <div className="flex items-center gap-2 mb-2">
+                            {r.authentication?.spf ? <CheckCircle className="w-4 h-4 text-emerald-400" /> : <AlertTriangle className="w-4 h-4 text-red-400" />}
+                            <span className="text-xs font-bold text-white uppercase tracking-wider">SPF Record</span>
+                          </div>
+                          <p className="text-xs font-mono text-gray-400 break-all">{r.authentication?.spfRecord || (r.authentication?.spf ? 'Present' : 'Not found — domain is spoofable')}</p>
+                        </div>
+                        {/* DMARC */}
+                        <div className={`p-4 rounded-xl border ${r.authentication?.dmarc ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-amber-500/20 bg-amber-500/5'}`}>
+                          <div className="flex items-center gap-2 mb-2">
+                            {r.authentication?.dmarc ? <CheckCircle className="w-4 h-4 text-emerald-400" /> : <AlertTriangle className="w-4 h-4 text-amber-400" />}
+                            <span className="text-xs font-bold text-white uppercase tracking-wider">DMARC Policy</span>
+                          </div>
+                          <p className="text-xs font-mono text-gray-400 break-all">{r.authentication?.dmarcPolicy || (r.authentication?.dmarc ? 'Present' : 'Not configured')}</p>
+                        </div>
+                        {/* DKIM */}
+                        {r.authentication?.dkim && (
+                          <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
+                            <div className="flex items-center gap-2 mb-2">
+                              <CheckCircle className="w-4 h-4 text-emerald-400" />
+                              <span className="text-xs font-bold text-white uppercase tracking-wider">DKIM</span>
+                            </div>
+                            <p className="text-xs font-mono text-gray-400 break-all">{r.authentication.dkim}</p>
+                          </div>
+                        )}
+                      </div>
+                    </Section>
+
+                    {/* Security layers */}
+                    {r.securityLayers?.length > 0 && (
+                      <Section title="Security Layers" icon={Shield}>
+                        <div className="grid grid-cols-2 gap-3">
+                          {r.securityLayers.map((layer, i) => (
+                            <div key={i} className={`flex items-center gap-2 p-3 rounded-lg border ${layer.status === 'secure' ? 'bg-emerald-500/5 border-emerald-500/20' : layer.status === 'warning' ? 'bg-amber-500/5 border-amber-500/20' : 'bg-white/[0.01] border-white/5'}`}>
+                              {layer.status === 'secure' ? <CheckCircle className="w-3.5 h-3.5 text-emerald-400" /> : layer.status === 'warning' ? <AlertTriangle className="w-3.5 h-3.5 text-amber-400" /> : <Info className="w-3.5 h-3.5 text-gray-500" />}
+                              <div className="flex-1">
+                                <span className="text-xs text-gray-300 uppercase tracking-wider block">{layer.name}</span>
+                                <span className="text-[10px] text-gray-500">{layer.detail}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </Section>
+                    )}
+                  </motion.div>
+                )}
+
+                {/* ═══════ GOOGLE OSINT TAB ═══════ */}
+                {activeTab === 'google' && (
+                  <motion.div key="google" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
+                    {r.googleOsint ? (
+                      <>
+                        <Section title="Google Account" icon={User}>
+                          <div className="flex items-start gap-6">
+                            {r.googleOsint.profilePhoto && (
+                              <img src={r.googleOsint.profilePhoto} alt="Google Profile" className="w-20 h-20 rounded-xl border border-white/10 shadow-lg" />
+                            )}
+                            <div className="flex-1 space-y-1">
+                              <InfoRow icon={User} label="Name" value={r.googleOsint.name} />
+                              <InfoRow icon={Fingerprint} label="Gaia ID" value={r.googleOsint.gaiaId} mono copyable onCopy={copy} />
+                              <InfoRow icon={Calendar} label="Last Edited" value={r.googleOsint.lastEdited} />
+                              {r.googleOsint.userTypes?.length > 0 && (
+                                <InfoRow icon={Layers} label="Account Types" value={r.googleOsint.userTypes.join(', ')} />
+                              )}
+                            </div>
+                          </div>
+                        </Section>
+
+                        {r.googleOsint.coverPhoto && (
+                          <Section title="Cover Photo" icon={Camera}>
+                            <img src={r.googleOsint.coverPhoto} alt="Cover" className="w-full h-40 object-cover rounded-xl border border-white/10" />
+                          </Section>
+                        )}
+
+                        {r.googleOsint.maps && (
+                          <Section title="Google Maps Data" icon={MapPin}>
+                            <div className="space-y-1">
+                              <InfoRow icon={MapPin} label="Profile URL" value={r.googleOsint.maps.profileUrl} copyable onCopy={copy} />
+                              <InfoRow icon={Database} label="Reviews" value={r.googleOsint.maps.reviewCount || r.googleOsint.maps.reviews?.length} />
+                              <InfoRow icon={Camera} label="Photos" value={r.googleOsint.maps.photoCount} />
+                            </div>
+                          </Section>
+                        )}
+
+                        {r.googleOsint.calendar && (
+                          <Section title="Google Calendar" icon={Calendar}>
+                            <InfoRow icon={Calendar} label="Calendar ID" value={r.googleOsint.calendar.calendarId || r.googleOsint.calendar.summary} copyable onCopy={copy} />
+                          </Section>
+                        )}
+
+                        {r.googleOsint.services && Object.keys(r.googleOsint.services).length > 0 && (
+                          <Section title="Activated Services" icon={Layers}>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                              {Object.entries(r.googleOsint.services).map(([name, active]) => (
+                                <div key={name} className={`flex items-center gap-2 p-3 rounded-lg border ${active ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-white/[0.01] border-white/5'}`}>
+                                  {active ? <CheckCircle className="w-3.5 h-3.5 text-emerald-400" /> : <X className="w-3.5 h-3.5 text-gray-600" />}
+                                  <span className="text-xs text-gray-300">{name}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </Section>
+                        )}
+                      </>
+                    ) : (
+                      <div className="text-center py-16">
+                        <Search className="w-12 h-12 mx-auto mb-4 text-gray-600/30" />
+                        <p className="text-lg font-semibold text-gray-400">No Google Account Data</p>
+                        <p className="text-sm text-gray-600 mt-1">GHunt did not return any Google account intelligence for this email</p>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+
+                {/* ═══════ REPUTATION TAB ═══════ */}
+                {activeTab === 'reputation' && (
+                  <motion.div key="reputation" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-6">
+                    
+                    <Section title="Email Reputation" icon={Shield}>
+                      <div className="space-y-1">
+                        <InfoRow icon={Shield} label="Reputation" value={r.reputation?.emailReputation} positive={r.reputation?.emailReputation === 'high'} />
+                        <InfoRow icon={BarChart3} label="Score" value={r.reputation?.score} />
+                        <InfoRow icon={AlertTriangle} label="Suspicious" value={r.reputation?.suspicious ? 'Yes' : 'No'} positive={!r.reputation?.suspicious} />
+                        <InfoRow icon={AlertCircle} label="Malicious Activity" value={r.reputation?.maliciousActivity ? 'Yes' : 'No'} positive={!r.reputation?.maliciousActivity} />
+                        <InfoRow icon={Mail} label="Spam Reports" value={r.reputation?.spamReports ? 'Yes' : 'No'} positive={!r.reputation?.spamReports} />
+                        <InfoRow icon={Lock} label="Blacklisted" value={r.reputation?.blacklisted ? 'Yes' : 'No'} positive={!r.reputation?.blacklisted} />
+                        <InfoRow icon={Radio} label="Credentials Leaked" value={r.reputation?.credentialsLeaked ? 'Yes' : 'No'} positive={!r.reputation?.credentialsLeaked} />
+                        <InfoRow icon={Clock} label="First Seen" value={r.reputation?.firstSeen} />
+                        <InfoRow icon={Clock} label="Last Seen" value={r.reputation?.lastSeen} />
+                        <InfoRow icon={Activity} label="Activity" value={r.reputation?.activity} />
+                      </div>
+                    </Section>
+
+                    {r.reputation?.references > 0 && (
+                      <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                        <InfoRow icon={Database} label="References Found" value={r.reputation.references} />
+                        <InfoRow icon={AlertCircle} label="Breach Count" value={r.reputation.breachCount} />
+                      </div>
+                    )}
+
+                    {/* Deliverability */}
+                    <Section title="Deliverability" icon={Mail}>
+                      <div className="space-y-1">
+                        <InfoRow icon={CheckCircle} label="Deliverable" value={r.deliverability?.canDeliver ? 'Yes' : 'Unknown'} positive={r.deliverability?.canDeliver} />
+                        <InfoRow icon={Server} label="Provider" value={r.deliverability?.provider} />
+                        <InfoRow icon={Mail} label="Inbox Type" value={r.deliverability?.inboxType} />
+                        <InfoRow icon={Globe} label="Accepts All" value={r.deliverability?.acceptsAll ? 'Yes' : 'No'} />
+                        <InfoRow icon={AlertCircle} label="Catch-All" value={r.deliverability?.catchAll ? 'Yes' : 'No'} />
+                      </div>
+                    </Section>
+                  </motion.div>
+                )}
+
+              </AnimatePresence>
+            </div>
+          </div>
+        )}
+
+        <style>{`
+          .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+          .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+          .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(56,189,248,0.2); border-radius: 99px; }
+          .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(56,189,248,0.4); }
+        `}</style>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+export default EmailIntelTool;
