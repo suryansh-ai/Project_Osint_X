@@ -1,9 +1,11 @@
 {
   "demoUsers": [
     {
-      "id": "demo-student-001",
-      "email": "field@osintx.demo",
-      "name": "Agent Frost",
+      "id": "SYN-USER-0001",
+      "email": "agent.frost@example.com",
+      "displayName": "Agent Frost (SYNTHETIC)",
+      "fullName": "Avery Frost",
+      "aliases": ["FrostOps", "afrost"],
       "role": "student",
       "avatar": "🎓",
       "credits": 350,
@@ -15,12 +17,27 @@
       "correlationLimit": 1,
       "lastActivity": "2025-12-28T16:30:00Z",
       "joinedAt": "2025-11-15T10:30:00Z",
-      "systemWarnings": 3
+      "systemWarnings": 3,
+      "profile": {
+        "title": "Field Analyst (Training)",
+        "location": "SYN-City, SYN-Region",
+        "timezone": "America/New_York",
+        "bio": "Synthetic training account for OSINT exercises. No real personal data included.",
+        "contacts": {
+          "phone": "+1-555-0101",
+          "pager": null
+        }
+      },
+      "caseHistory": [
+        { "caseId": "CASE-1001", "role": "contributor", "sensitivity": "low" },
+        { "caseId": "CASE-1012", "role": "observer", "sensitivity": "medium" }
+      ]
     },
     {
-      "id": "demo-user-001",
-      "email": "investigator@osintx.demo",
-      "name": "Jordan Trace",
+      "id": "SYN-USER-0002",
+      "email": "jordan.trace@example.com",
+      "displayName": "Jordan Trace (SYNTHETIC)",
+      "fullName": "Jordan Trace",
       "role": "user",
       "avatar": "👤",
       "credits": 750,
@@ -33,12 +50,49 @@
       "savedTools": ["bulk-ip-tracer", "dork-generator", "location-tracker"],
       "workspaceLayout": "adaptive",
       "lastActivity": "2025-12-28T18:45:00Z",
-      "joinedAt": "2025-09-20T14:45:00Z"
+      "joinedAt": "2025-09-20T14:45:00Z",
+      "profile": {
+        "title": "Senior Investigator",
+        "organization": "SYN-Research Unit",
+        "location": "SYN-Metro",
+        "timezone": "Europe/London",
+        "bio": "Synthetic investigator account used to demo advanced workflows. All PII is fictional and masked.",
+        "contacts": { "phone": "+44-555-0102", "workEmail": "j.trace@org.example.com" }
+      },
+      "riskScore": 12,
+      "notes": [
+        { "id": "note-1", "text": "Demo note: user practices correlation workflows.", "sensitive": false }
+      ]
+    },
+    {
+      "id": "SYN-USER-ADM-001",
+      "email": "admin@example.com",
+      "displayName": "Admin (SYNTHETIC)",
+      "fullName": "Sam Admin",
+      "role": "admin",
+      "avatar": "🛡️",
+      "credits": 5000,
+      "creditLimit": 10000,
+      "activeCases": 12,
+      "closedCases": 128,
+      "restrictionLevel": "ADMIN",
+      "outputDepth": "full",
+      "correlationLimit": 10,
+      "joinedAt": "2024-01-10T09:00:00Z",
+      "profile": {
+        "title": "Platform Administrator",
+        "organization": "SYN-Org",
+        "location": "SYN-Headquarters",
+        "bio": "Admin account for demo; does not represent a real person. Sensitive fields are masked or synthetic.",
+        "contacts": { "phone": "+1-555-0199", "secureChannel": "synth-admin-channel" }
+      },
+      "audit": { "lastLoginIP": "198.51.100.5", "mfaEnabled": true }
     }
   ],
   "sessionConfig": {
     "demoSessionDuration": 3600000,
     "autoResetOnRefresh": true,
-    "showDemoBanner": true
+    "showDemoBanner": true,
+    "note": "All demo user records are synthetic and safe for public examples. Do not use as real identities."
   }
 }

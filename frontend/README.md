@@ -59,7 +59,6 @@ Create `.env` file with:
 ```env
 VITE_API_URL=http://localhost:5000/api
 VITE_WS_URL=ws://localhost:5000/ws
-VITE_ENABLE_MOCK_MODE=true
 ```
 
 ## Project Structure
@@ -94,12 +93,6 @@ frontend/
 ```
 
 ## Development
-
-### Mock Mode
-Enable mock mode in `.env` to develop without backend:
-```env
-VITE_ENABLE_MOCK_MODE=true
-```
 
 ### Building for Production
 ```bash
