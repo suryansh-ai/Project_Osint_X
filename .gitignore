@@ -12,11 +12,22 @@ build/
 .env.local
 .env.*.local
 
+# Frontend local environment files (machine-specific)
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+
+# Backup files
+*.bak
+*.orig
+*.backup
+*~
 
 # OS files
 .DS_Store
