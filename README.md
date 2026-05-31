@@ -42,40 +42,40 @@
 
 ### 🎯 Core Capabilities
 
-| Feature | Description |
-|---------|-------------|
-| **40+ OSINT Tools** | Comprehensive toolset covering network, social, crypto, dark web, and more |
-| **Case Management** | Create, organize, and collaborate on investigations with Kanban boards |
-| **AI Insights Panel** | AI-powered analysis and pattern detection across collected evidence |
-| **Evidence Manager** | Tag, annotate, and link evidence items with full chain-of-custody |
-| **Investigation Graph** | Visual relationship mapping between entities (*people, IPs, domains*) |
-| **Global Threat Map** | Real-time cyber attack visualization on an interactive world map |
-| **Report Generator** | Export professional PDF/Word investigation reports |
-| **Advanced Timeline** | Chronological event reconstruction for investigations |
-| **Terminal Interface** | Built-in investigation terminal for power users |
-| **Collaboration** | Real-time multi-analyst collaboration on cases |
+| Feature                       | Description                                                                |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| **40+ OSINT Tools**     | Comprehensive toolset covering network, social, crypto, dark web, and more |
+| **Case Management**     | Create, organize, and collaborate on investigations with Kanban boards     |
+| **AI Insights Panel**   | AI-powered analysis and pattern detection across collected evidence        |
+| **Evidence Manager**    | Tag, annotate, and link evidence items with full chain-of-custody          |
+| **Investigation Graph** | Visual relationship mapping between entities (*people, IPs, domains*)    |
+| **Global Threat Map**   | Real-time cyber attack visualization on an interactive world map           |
+| **Report Generator**    | Export professional PDF/Word investigation reports                         |
+| **Advanced Timeline**   | Chronological event reconstruction for investigations                      |
+| **Terminal Interface**  | Built-in investigation terminal for power users                            |
+| **Collaboration**       | Real-time multi-analyst collaboration on cases                             |
 
 ### 🛡️ Security & Access
 
-| Feature | Description |
-|---------|-------------|
-| **Role-Based Access** | Student & User roles with scoped tool permissions |
-| **Firebase Auth** | Secure authentication with email verification |
-| **Session Management** | Auto-timeout warnings and session tracking |
-| **Credit System** | Usage-based credits to manage API consumption |
-| **Rate Limiting** | Built-in rate limit banners to prevent API abuse |
-| **Input Sanitization** | XSS protection and CSRF tokens on all mutations |
+| Feature                      | Description                                       |
+| ---------------------------- | ------------------------------------------------- |
+| **Role-Based Access**  | Student & User roles with scoped tool permissions |
+| **Firebase Auth**      | Secure authentication with email verification     |
+| **Session Management** | Auto-timeout warnings and session tracking        |
+| **Credit System**      | Usage-based credits to manage API consumption     |
+| **Rate Limiting**      | Built-in rate limit banners to prevent API abuse  |
+| **Input Sanitization** | XSS protection and CSRF tokens on all mutations   |
 
 ### 🎨 User Experience
 
-| Feature | Description |
-|---------|-------------|
-| **Dark Cyber Theme** | Stunning dark UI with cyan/purple neon accents |
-| **Framer Motion** | Smooth animations and page transitions |
-| **Keyboard Shortcuts** | Power-user shortcuts for rapid navigation |
-| **Search History** | Persistent search history across sessions |
-| **PWA Support** | Install as a desktop/mobile app with offline capabilities |
-| **Toast Notifications** | Real-time feedback for all operations |
+| Feature                       | Description                                               |
+| ----------------------------- | --------------------------------------------------------- |
+| **Dark Cyber Theme**    | Stunning dark UI with cyan/purple neon accents            |
+| **Framer Motion**       | Smooth animations and page transitions                    |
+| **Keyboard Shortcuts**  | Power-user shortcuts for rapid navigation                 |
+| **Search History**      | Persistent search history across sessions                 |
+| **PWA Support**         | Install as a desktop/mobile app with offline capabilities |
+| **Toast Notifications** | Real-time feedback for all operations                     |
 
 ---
 
@@ -84,73 +84,80 @@
 OsintX packs **40+ specialized OSINT tools** organized by category:
 
 ### 🌐 Network & Infrastructure
-| Tool | Purpose |
-|------|---------|
-| `IP Intelligence` | Comprehensive IP geolocation, ASN, threat scoring |
-| `DNS Records` | Full DNS enumeration (A, MX, NS, TXT, CNAME) |
-| `Domain Analysis` | WHOIS, SSL certs, subdomain discovery |
-| `Port Scanner` | TCP/UDP port scanning and service detection |
-| `Subdomain Finder` | Brute-force and passive subdomain enumeration |
-| `Certificate Search` | SSL/TLS certificate transparency log lookup |
-| `WHOIS Lookup` | Domain registration and ownership details |
-| `Tech Detector` | Identify frameworks, CMS, servers behind websites |
-| `MAC Lookup` | Vendor lookup for MAC addresses |
-| `WiFi Geolocation` | Locate WiFi access points geographically |
+
+| Tool                   | Purpose                                           |
+| ---------------------- | ------------------------------------------------- |
+| `IP Intelligence`    | Comprehensive IP geolocation, ASN, threat scoring |
+| `DNS Records`        | Full DNS enumeration (A, MX, NS, TXT, CNAME)      |
+| `Domain Analysis`    | WHOIS, SSL certs, subdomain discovery             |
+| `Port Scanner`       | TCP/UDP port scanning and service detection       |
+| `Subdomain Finder`   | Brute-force and passive subdomain enumeration     |
+| `Certificate Search` | SSL/TLS certificate transparency log lookup       |
+| `WHOIS Lookup`       | Domain registration and ownership details         |
+| `Tech Detector`      | Identify frameworks, CMS, servers behind websites |
+| `MAC Lookup`         | Vendor lookup for MAC addresses                   |
+| `WiFi Geolocation`   | Locate WiFi access points geographically          |
 
 ### 👤 Social & People
-| Tool | Purpose |
-|------|---------|
-| `Social Profiler` | Cross-platform username search (100+ sites) |
-| `Sherlock` | Advanced username enumeration engine |
-| `Social Analyzer` | Deep social media profile analysis |
-| `GHunt` | Google account intelligence gathering |
+
+| Tool                 | Purpose                                     |
+| -------------------- | ------------------------------------------- |
+| `Social Profiler`  | Cross-platform username search (100+ sites) |
+| `Sherlock`         | Advanced username enumeration engine        |
+| `Social Analyzer`  | Deep social media profile analysis          |
+| `GHunt`            | Google account intelligence gathering       |
 | `Face Recognition` | Facial recognition and reverse image search |
-| `WhatsApp Trace` | WhatsApp number verification and info |
+| `WhatsApp Trace`   | WhatsApp number verification and info       |
 
 ### 📧 Email & Communication
-| Tool | Purpose |
-|------|---------|
-| `Email Intel` | Header analysis, SPF/DKIM verification, breach check |
-| `Breach Database` | Check emails/passwords in known data breaches |
-| `Phone Lookup` | Carrier detection, validation, caller ID |
+
+| Tool                | Purpose                                              |
+| ------------------- | ---------------------------------------------------- |
+| `Email Intel`     | Header analysis, SPF/DKIM verification, breach check |
+| `Breach Database` | Check emails/passwords in known data breaches        |
+| `Phone Lookup`    | Carrier detection, validation, caller ID             |
 
 ### 🔐 Threat Intelligence
-| Tool | Purpose |
-|------|---------|
-| `Threat Intel` | IOC lookup across multiple threat feeds |
-| `Malware Check` | File hash reputation via VirusTotal & others |
-| `Hash Analyzer` | MD5/SHA1/SHA256 malware hash detection |
-| `CVE Lookup` | Search CVE vulnerability database |
-| `URL Scanner` | Phishing/malware URL threat analysis |
-| `IP Quality Score` | Fraud scoring and proxy/VPN detection |
-| `Sanctions Search` | Global sanctions and PEP database search |
-| `Interpol Notices` | Interpol red/yellow notice lookup |
+
+| Tool                 | Purpose                                      |
+| -------------------- | -------------------------------------------- |
+| `Threat Intel`     | IOC lookup across multiple threat feeds      |
+| `Malware Check`    | File hash reputation via VirusTotal & others |
+| `Hash Analyzer`    | MD5/SHA1/SHA256 malware hash detection       |
+| `CVE Lookup`       | Search CVE vulnerability database            |
+| `URL Scanner`      | Phishing/malware URL threat analysis         |
+| `IP Quality Score` | Fraud scoring and proxy/VPN detection        |
+| `Sanctions Search` | Global sanctions and PEP database search     |
+| `Interpol Notices` | Interpol red/yellow notice lookup            |
 
 ### 🕸️ Dark Web & Data
-| Tool | Purpose |
-|------|---------|
-| `Dark Web Search` | .onion and dark web intelligence gathering |
-| `Paste Search` | Search Pastebin and paste sites for leaks |
-| `Data Mining` | Extract patterns and entities from datasets |
-| `Wayback Machine` | Historical website snapshot retrieval |
+
+| Tool                | Purpose                                     |
+| ------------------- | ------------------------------------------- |
+| `Dark Web Search` | .onion and dark web intelligence gathering  |
+| `Paste Search`    | Search Pastebin and paste sites for leaks   |
+| `Data Mining`     | Extract patterns and entities from datasets |
+| `Wayback Machine` | Historical website snapshot retrieval       |
 
 ### 💰 Financial & Tracking
-| Tool | Purpose |
-|------|---------|
-| `Crypto Tracer` | Blockchain transaction tracking (BTC/ETH) |
-| `UPI Info` | UPI payment ID intelligence |
-| `Vehicle Info` | Vehicle registration and owner lookup |
-| `Flight Tracker` | Real-time flight tracking and history |
+
+| Tool               | Purpose                                   |
+| ------------------ | ----------------------------------------- |
+| `Crypto Tracer`  | Blockchain transaction tracking (BTC/ETH) |
+| `UPI Info`       | UPI payment ID intelligence               |
+| `Vehicle Info`   | Vehicle registration and owner lookup     |
+| `Flight Tracker` | Real-time flight tracking and history     |
 
 ### 🔧 Utility
-| Tool | Purpose |
-|------|---------|
-| `Encoder/Decoder` | Base64, URL, HTML, hex encoding/decoding |
-| `Link Preview` | Safe URL preview and metadata extraction |
-| `URL Expander` | Unshorten and trace redirect chains |
-| `Web Profiler` | Website technology and performance analysis |
-| `Web Carbon` | Website carbon footprint estimation |
-| `Geolocation` | IP/phone/coordinate geolocation mapping |
+
+| Tool                | Purpose                                     |
+| ------------------- | ------------------------------------------- |
+| `Encoder/Decoder` | Base64, URL, HTML, hex encoding/decoding    |
+| `Link Preview`    | Safe URL preview and metadata extraction    |
+| `URL Expander`    | Unshorten and trace redirect chains         |
+| `Web Profiler`    | Website technology and performance analysis |
+| `Web Carbon`      | Website carbon footprint estimation         |
+| `Geolocation`     | IP/phone/coordinate geolocation mapping     |
 
 ---
 
@@ -158,7 +165,7 @@ OsintX packs **40+ specialized OSINT tools** organized by category:
 
 ### Prerequisites
 
-- **Node.js** 18+ 
+- **Node.js** 18+
 - **npm** or **yarn**
 - **Git**
 
@@ -207,65 +214,6 @@ npm run preview  # Preview production build
 
 ---
 
-## 🏗️ Architecture
-
-```
-OsintX/
-└── frontend/
-    ├── public/
-    │   ├── manifest.json         # PWA manifest
-    │   ├── service-worker.js     # Offline support
-    │   └── images/               # Static assets
-    └── src/
-        ├── components/
-        │   ├── auth/             # Route protection & guards
-        │   ├── case/             # Case management suite
-        │   │   ├── AIInsightsPanel       # AI-powered investigation insights
-        │   │   ├── AdvancedTimeline      # Event timeline reconstruction
-        │   │   ├── CollaborationPanel    # Multi-analyst collaboration
-        │   │   ├── EvidenceManager       # Evidence chain-of-custody
-        │   │   ├── InvestigationGraph    # Entity relationship mapping
-        │   │   ├── KanbanBoard           # Task management board
-        │   │   ├── ReportGenerator       # PDF/Word report export
-        │   │   ├── WatchlistIntegration  # Watchlist monitoring
-        │   │   └── CaseTemplates         # Reusable case templates
-        │   ├── common/           # Shared UI components
-        │   ├── terminal/         # Investigation terminal
-        │   ├── ThreatMap/        # Global cyber threat visualization
-        │   └── tools/            # 40+ OSINT tool components
-        ├── context/              # Global state management
-        │   ├── AuthContext        # Authentication state
-        │   ├── CaseContext        # Case management state
-        │   ├── CreditContext      # Usage credits tracking
-        │   ├── EvidenceContext    # Evidence management
-        │   ├── RoleContext        # RBAC permissions
-        │   ├── SessionContext     # Session lifecycle
-        │   ├── SettingsContext    # User preferences
-        │   ├── ThemeContext       # Dark/light theme
-        │   └── ...
-        ├── services/             # API integration layer
-        │   ├── api.js            # Axios base config
-        │   ├── authService.js    # Auth endpoints
-        │   ├── caseService.js    # Case CRUD operations
-        │   ├── osintService.js   # Tool orchestration
-        │   └── tools/            # Per-tool API services
-        ├── pages/                # Route pages
-        │   ├── auth/             # Login, Signup, Reset
-        │   ├── dashboards/       # Role-specific dashboards
-        │   ├── Index.jsx         # Landing page
-        │   ├── AboutUs.jsx       # About page
-        │   └── ContactUs.jsx     # Contact page
-        ├── utils/                # Utility modules
-        │   ├── validators.js     # Input validation library
-        │   ├── export.js         # Export helpers
-        │   ├── analytics.js      # Event tracking
-        │   ├── performance.js    # Perf monitoring
-        │   └── pwa.js            # PWA utilities
-        └── mock-api/             # Mock data for dev mode
-```
-
----
-
 ## 📋 Case Management
 
 OsintX includes a full-featured **investigation case management system**:
@@ -274,23 +222,24 @@ OsintX includes a full-featured **investigation case management system**:
 📁 Create Case → 🔍 Run Tools → 📎 Save Evidence → 🔗 Link Entities → 📊 Generate Report
 ```
 
-| Module | What it does |
-|--------|-------------|
-| **Case Templates** | Start investigations from pre-built templates (fraud, missing person, cyber incident) |
-| **Kanban Board** | Drag-and-drop task management for investigation steps |
-| **Evidence Manager** | Store tool outputs, tag with metadata, maintain chain-of-custody |
-| **Investigation Graph** | Visualize connections between people, IPs, domains, emails |
-| **AI Insights** | AI analyzes patterns across collected evidence and suggests leads |
-| **Advanced Timeline** | Reconstruct events chronologically across all evidence sources |
-| **Report Generator** | One-click professional investigation report export |
-| **Collaboration** | Invite team members, assign tasks, share findings in real-time |
-| **Watchlist** | Monitor entities of interest for changes over time |
+| Module                        | What it does                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------- |
+| **Case Templates**      | Start investigations from pre-built templates (fraud, missing person, cyber incident) |
+| **Kanban Board**        | Drag-and-drop task management for investigation steps                                 |
+| **Evidence Manager**    | Store tool outputs, tag with metadata, maintain chain-of-custody                      |
+| **Investigation Graph** | Visualize connections between people, IPs, domains, emails                            |
+| **AI Insights**         | AI analyzes patterns across collected evidence and suggests leads                     |
+| **Advanced Timeline**   | Reconstruct events chronologically across all evidence sources                        |
+| **Report Generator**    | One-click professional investigation report export                                    |
+| **Collaboration**       | Invite team members, assign tasks, share findings in real-time                        |
+| **Watchlist**           | Monitor entities of interest for changes over time                                    |
 
 ---
 
 ## 🧩 Component API Examples
 
 ### Toast Notifications
+
 ```jsx
 import { useToast } from '@/components/common/Toast';
 
@@ -301,6 +250,7 @@ toast.info('Scan in progress...');
 ```
 
 ### Protected Routes
+
 ```jsx
 import { ProtectedRoute, RoleRoute } from '@/components/auth/ProtectedRoute';
 
@@ -312,6 +262,7 @@ import { ProtectedRoute, RoleRoute } from '@/components/auth/ProtectedRoute';
 ```
 
 ### Input Validation
+
 ```jsx
 import { validateIP, validateDomain, validateEmail } from '@/utils/validators';
 
@@ -323,6 +274,7 @@ const bad = validateDomain('not a domain!!');
 ```
 
 ### Credit System
+
 ```jsx
 import { useCredit } from '@/context/CreditContext';
 
@@ -346,11 +298,11 @@ Real-time cyber attack visualization powered by **React Simple Maps** and **Leaf
 
 ## 🌐 Browser Support
 
-| Browser | Version |
-|---------|---------|
-| Chrome / Edge | 90+ |
-| Firefox | 88+ |
-| Safari | 14+ |
+| Browser       | Version |
+| ------------- | ------- |
+| Chrome / Edge | 90+     |
+| Firefox       | 88+     |
+| Safari        | 14+     |
 
 ---
 
@@ -375,7 +327,7 @@ We welcome contributions! Here's how to get started:
 
 ## 📜 License
 
-This project is **proprietary**. All rights reserved.  
+This project is **proprietary**. All rights reserved.
 Unauthorized copying, modification, or distribution is strictly prohibited.
 
 ---
