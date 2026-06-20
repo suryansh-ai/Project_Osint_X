@@ -45,10 +45,8 @@
 | Feature                       | Description                                                                |
 | ----------------------------- | -------------------------------------------------------------------------- |
 | **40+ OSINT Tools**     | Comprehensive toolset covering network, social, crypto, dark web, and more |
-| **Case Management**     | Create, organize, and collaborate on investigations with Kanban boards     |
-| **AI Insights Panel**   | AI-powered analysis and pattern detection across collected evidence        |
 | **Evidence Manager**    | Tag, annotate, and link evidence items with full chain-of-custody          |
-| **Investigation Graph** | Visual relationship mapping between entities (*people, IPs, domains*)    |
+| **Investigation Graph** | Visual relationship mapping between entities (*people, IPs, domains*)      |
 | **Global Threat Map**   | Real-time cyber attack visualization on an interactive world map           |
 | **Report Generator**    | Export professional PDF/Word investigation reports                         |
 | **Advanced Timeline**   | Chronological event reconstruction for investigations                      |
@@ -210,76 +208,6 @@ The app will launch at `http://localhost:5173` 🎉
 ```bash
 npm run build    # Output in dist/
 npm run preview  # Preview production build
-```
-
----
-
-## 📋 Case Management
-
-OsintX includes a full-featured **investigation case management system**:
-
-```
-📁 Create Case → 🔍 Run Tools → 📎 Save Evidence → 🔗 Link Entities → 📊 Generate Report
-```
-
-| Module                        | What it does                                                                          |
-| ----------------------------- | ------------------------------------------------------------------------------------- |
-| **Case Templates**      | Start investigations from pre-built templates (fraud, missing person, cyber incident) |
-| **Kanban Board**        | Drag-and-drop task management for investigation steps                                 |
-| **Evidence Manager**    | Store tool outputs, tag with metadata, maintain chain-of-custody                      |
-| **Investigation Graph** | Visualize connections between people, IPs, domains, emails                            |
-| **AI Insights**         | AI analyzes patterns across collected evidence and suggests leads                     |
-| **Advanced Timeline**   | Reconstruct events chronologically across all evidence sources                        |
-| **Report Generator**    | One-click professional investigation report export                                    |
-| **Collaboration**       | Invite team members, assign tasks, share findings in real-time                        |
-| **Watchlist**           | Monitor entities of interest for changes over time                                    |
-
----
-
-## 🧩 Component API Examples
-
-### Toast Notifications
-
-```jsx
-import { useToast } from '@/components/common/Toast';
-
-const toast = useToast();
-toast.success('Evidence saved to case');
-toast.error('Rate limit exceeded');
-toast.info('Scan in progress...');
-```
-
-### Protected Routes
-
-```jsx
-import { ProtectedRoute, RoleRoute } from '@/components/auth/ProtectedRoute';
-
-// Require authentication
-<ProtectedRoute><Dashboard /></ProtectedRoute>
-
-// Require specific role
-<RoleRoute role="user"><AdvancedTools /></RoleRoute>
-```
-
-### Input Validation
-
-```jsx
-import { validateIP, validateDomain, validateEmail } from '@/utils/validators';
-
-const result = validateIP('8.8.8.8');
-// { valid: true }
-
-const bad = validateDomain('not a domain!!');
-// { valid: false, error: 'Invalid domain format' }
-```
-
-### Credit System
-
-```jsx
-import { useCredit } from '@/context/CreditContext';
-
-const { credits, deductCredits } = useCredit();
-// Check balance before running expensive scans
 ```
 
 ---
